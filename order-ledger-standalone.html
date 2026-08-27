@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#FAF6EF; --surface:#FFFFFF; --surface-2:#F1EADC; --ink:#241F18; --ink-muted:#7A7062;
+  --border:#E7DFD1; --action:#3A3227; --action-ink:#FAF6EF; --danger:#A23B2E; --danger-bg:#F6E4E0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1B1712; --surface:#241F18; --surface-2:#2E2820; --ink:#F3ECE0; --ink-muted:#B0A48F;
+    --border:#3A3227; --action:#F3ECE0; --action-ink:#1B1712; --danger:#E28073; --danger-bg:#3A231F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1B1712; --surface:#241F18; --surface-2:#2E2820; --ink:#F3ECE0; --ink-muted:#B0A48F;
+  --border:#3A3227; --action:#F3ECE0; --action-ink:#1B1712; --danger:#E28073; --danger-bg:#3A231F;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Work Sans', system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+#app{max-width:680px; margin:0 auto; padding:0 16px 56px;}
+h1{font-family:'Fraunces', Georgia, serif; font-weight:600; font-size:1.5rem; margin:0; text-wrap:balance;}
+h2{font-family:'Fraunces', Georgia, serif; font-weight:600; font-size:1.05rem; margin:0 0 10px;}
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:22px 0 14px;}
+.brand{display:flex; align-items:center; gap:10px;}
+.brand-mark{font-size:1.4rem;}
+.status{font-size:.78rem; color:var(--ink-muted); white-space:nowrap;}
+.status-saved{color:#3F7A4F;}
+.status-error{color:var(--danger);}
+.status-readonly, .status-local{color:var(--ink-muted); font-style:italic;}
+
+.nav{display:flex; gap:8px; padding:4px 0 20px;}
+.nav-tab{
+  font-family:'Work Sans', sans-serif; font-weight:600; font-size:.88rem;
+  padding:9px 16px; border-radius:999px; border:1.5px solid var(--border);
+  background:var(--surface); color:var(--ink-muted); cursor:pointer;
+}
+.nav-tab-active{ background:var(--action); border-color:var(--action); color:var(--action-ink); }
+
+.vendor-legend{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:16px; }
+.vendor-chip{ display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--ink-muted); background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:5px 10px 5px 8px; }
+.vendor-dot{ width:9px; height:9px; border-radius:50%; background:var(--vc); display:inline-block; flex-shrink:0; }
+.chip-add{ background:transparent; border-style:dashed; cursor:pointer; font-family:inherit; color:var(--ink-muted); }
+.chip-add:hover{ border-color:var(--ink-muted); }
+
+.add-vendor-form{ flex-basis:100%; display:flex; flex-direction:column; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-top:2px; margin-bottom:14px; }
+.swatches{display:flex; gap:8px; flex-wrap:wrap;}
+.swatch{width:26px; height:26px; border-radius:50%; border:2px solid transparent; background:var(--sc); cursor:pointer; padding:0;}
+.swatch-selected{border-color:var(--ink);}
+
+.summary{ display:flex; border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:18px; background:var(--surface); }
+.summary-stat{ flex:1; text-align:center; padding:14px 8px; border-right:1px solid var(--border); }
+.summary-stat:last-child{ border-right:none; }
+.summary-stat .num{ display:block; font-family:'Fraunces', Georgia, serif; font-weight:600; font-size:1.35rem; color:var(--action); }
+.summary-stat .label{ display:block; font-size:.7rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+
+.catalog-section{ margin-bottom:22px; }
+.catalog-block{ border:1px solid var(--border); border-radius:12px; background:var(--surface); margin-bottom:10px; overflow:hidden; }
+.catalog-block-head{ display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid var(--border); background: color-mix(in srgb, var(--vc) 8%, var(--surface)); }
+.catalog-block-head .vendor-dot{ width:10px; height:10px; }
+.catalog-block-head .name{ font-weight:600; flex:1; }
+.catalog-block-head .count{ font-size:.75rem; color:var(--ink-muted); }
+.catalog-rows{ display:flex; flex-direction:column; }
+.catalog-row{ display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid var(--border); transition:opacity .15s ease; }
+.catalog-row:last-of-type{ border-bottom:none; }
+.catalog-name{ flex:1; font-size:.9rem; }
+.catalog-row select[name=qty]{ width:72px; padding:7px 6px; }
+.btn-add-sm{ font-size:.78rem; padding:7px 12px; }
+.catalog-empty{ padding:14px; color:var(--ink-muted); font-size:.85rem; }
+.add-product-row{ display:flex; gap:8px; padding:10px 14px; }
+.add-product-row input[type=text]{ flex:1; }
+.catalog-row.removing, table.ledger tr.removing{ opacity:.4; pointer-events:none; }
+.catalog-block .link-danger{ display:block; width:100%; text-align:left; padding:9px 14px; border-top:1px solid var(--border); align-self:auto; }
+
+.log-form{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; }
+input[type=text], input[type=date], input[type=number], select{
+  font-family:'Work Sans', sans-serif; font-size:.9rem; padding:9px 10px; border-radius:8px;
+  border:1px solid var(--border); background:var(--bg); color:var(--ink);
+}
+input:focus-visible, select:focus-visible{ outline:2px solid var(--action); outline-offset:1px; }
+
+.btn{ font-family:'Work Sans', sans-serif; font-weight:600; font-size:.85rem; padding:9px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+.btn-primary{ background:var(--action); border-color:var(--action); color:var(--action-ink); }
+.btn-reset{ width:100%; margin-bottom:16px; background:var(--surface); border:1.5px dashed var(--border); color:var(--ink-muted); }
+.btn-reset:hover{ border-color:var(--action); color:var(--ink); }
+.btn[disabled]{ opacity:.5; cursor:not-allowed; }
+.confirm-bar{ display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap; background:var(--danger-bg); border:1.5px solid var(--danger); border-radius:10px; padding:12px; margin-bottom:16px; font-size:.85rem; }
+.confirm-bar span{ flex-basis:100%; text-align:center; color:var(--ink); }
+.confirm-bar-inline{ margin:0; border-radius:0; border-width:1.5px 0 0; }
+.btn-danger{ background:var(--danger); border-color:var(--danger); color:#fff; }
+button:focus-visible{ outline:2px solid var(--action); outline-offset:2px; }
+
+.v-badge{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:.7rem; font-weight:600; color:#fff; background:var(--vc); white-space:nowrap; }
+
+.group{ margin-bottom:14px; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.group-head{ display:flex; align-items:center; gap:8px; padding:10px 14px; background: color-mix(in srgb, var(--vc) 10%, var(--surface)); font-weight:600; font-size:.88rem; }
+.group-head .vendor-dot{ width:10px; height:10px; }
+.group-head .group-sub{ margin-left:auto; font-weight:500; font-size:.76rem; color:var(--ink-muted); }
+.ledger-wrap{ overflow:auto; max-height:min(50vh, 420px); }
+table.ledger{ width:100%; border-collapse:collapse; font-size:.85rem; background:var(--surface); }
+table.ledger thead th{
+  position:sticky; top:0; background:var(--surface); text-align:left; font-size:.68rem;
+  text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:600;
+  padding:9px 12px; border-bottom:1px solid var(--border);
+}
+table.ledger th.col-qty, table.ledger td.col-qty{ text-align:right; }
+table.ledger td{ padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+table.ledger tbody tr:last-child td{ border-bottom:none; }
+table.ledger tbody tr:nth-child(even) td{ background: var(--surface-2); }
+.col-date{ color:var(--ink-muted); white-space:nowrap; }
+.col-product{ font-weight:600; }
+.col-qty{ font-weight:600; }
+.col-note{ color:var(--ink-muted); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.col-del{ text-align:right; white-space:nowrap; }
+.row-del{ background:none; border:none; color:var(--ink-muted); font-size:1.05rem; cursor:pointer; padding:2px 4px; line-height:1; }
+.row-del:hover{ color:var(--danger); }
+
+.order-card{ border:1px solid var(--border); border-radius:12px; background:var(--surface); overflow:hidden; margin-bottom:10px; }
+.order-head{ width:100%; display:flex; align-items:center; gap:10px; padding:14px; background:none; border:none; cursor:pointer; text-align:left; font-family:inherit; font-size:1rem; color:var(--ink); }
+.order-date{ font-weight:600; flex:1; }
+.order-meta{ font-size:.78rem; color:var(--ink-muted); }
+.chev{ font-size:1.1rem; color:var(--ink-muted); width:16px; text-align:center; }
+.order-body{ padding:0 14px 14px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:10px; }
+.order-body .group{ margin-top:12px; }
+
+.link-danger{ background:none; border:none; color:var(--danger); font-size:.78rem; cursor:pointer; padding:8px 0 0; align-self:flex-start; }
+
+.empty-hint{ color:var(--ink-muted); font-size:.9rem; padding:20px 0; }
+.app-footer{ padding-top:28px; }
+.footer-note{ color:var(--ink-muted); font-size:.75rem; text-align:center; padding-top:10px; }
+.backup-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.import-error{ color:var(--danger); font-size:.78rem; text-align:center; padding-top:8px; }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(20,16,10,.55); display:flex; align-items:center; justify-content:center; padding:20px; z-index:1000; }
+.modal-box{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; max-width:360px; width:100%; box-shadow:0 16px 48px rgba(0,0,0,.3); }
+.modal-box p{ margin:0 0 18px; font-size:.95rem; color:var(--ink); line-height:1.45; }
+.modal-actions{ display:flex; gap:10px; justify-content:flex-end; }
+@media (prefers-reduced-motion: no-preference){
+  .modal-box{ animation: modal-in .12s ease; }
+  @keyframes modal-in{ from{opacity:0; transform:scale(.97);} to{opacity:1; transform:scale(1);} }
+}
+
+@media (max-width: 420px){
+  .col-note{ display:none; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script id="initial-state" type="application/json">{"vendors": [{"id": "anacapri", "name": "Anacapri", "color": "#1F6F54", "products": []}, {"id": "campana", "name": "Campa\u00f1a", "color": "#B5541E", "products": []}, {"id": "alexsodas", "name": "Alex Sodas", "color": "#2A5C8A", "products": []}, {"id": "snapple", "name": "Snapple", "color": "#C98A1B", "products": []}], "currentOrder": {"entries": []}, "pastOrders": []}</script>
+<script id="app-logic">
+
+let state = JSON.parse(document.getElementById('initial-state').textContent);
+migrateState(state);
+let ui = { view: 'current', addingVendor: false, expandedOrders: new Set(), confirmReset: false, confirmDeleteOrder: null, pendingDuplicate: null, pendingQty: {}, removingProducts: new Set(), removingEntries: new Set(), confirmClearCatalog: null, pendingImport: null, importError: null };
+var QTY_OPTIONS = Array.from({length: 50}, function(_, i){ return i + 1; });
+let saveStatus = 'idle';
+var LS_KEY = 'orderLedgerState';
+var ROW_REMOVE_DELAY = 220; // ms -- lets a row stay in place, dimmed and
+  // unclickable, for a beat before it actually collapses out of the layout.
+  // Without this, deleting one row instantly shifts every row below it up,
+  // so a second rapid tap aimed at "the next item down" lands on whatever
+  // slid into that spot instead of what was actually there -- which reads
+  // exactly like "I deleted it and it came back" even though nothing
+  // reverted; the intended item just never got tapped.
+
+function migrateState(s){
+  // defensive: fold older shapes forward so nothing is lost across redesigns.
+  var didLegacyMigration = false;
+  if(!s.currentOrder) s.currentOrder = {entries: []};
+  if(!s.pastOrders) s.pastOrders = [];
+  s.vendors.forEach(function(v){
+    if(v.entries){
+      didLegacyMigration = true;
+      v.entries.forEach(function(e){ s.currentOrder.entries.push(Object.assign({}, e, {vendorId: v.id})); });
+      delete v.entries;
+    }
+    if(!Array.isArray(v.products)) v.products = [];
+    // old shape: v.products held {name, orders:[...]}; new shape: v.products holds {id, name} catalog entries only.
+    var legacyOrderProducts = v.products.filter(function(p){ return p && p.orders; });
+    if(legacyOrderProducts.length){
+      didLegacyMigration = true;
+      legacyOrderProducts.forEach(function(p){
+        (p.orders||[]).forEach(function(o){
+          s.currentOrder.entries.push({id:o.id, vendorId:v.id, product:p.name, date:o.date, qty:o.qty, note:o.note});
+        });
+      });
+      v.products = v.products.map(function(p){ return {id: p.id, name: p.name}; });
+    }
+  });
+  // Only recover a starter catalog from already-used product names when a
+  // genuinely OLD data shape was just folded forward above (those shapes had
+  // no separate catalog concept at all, so this is the only way anything
+  // already typed would show up in the new catalog UI). This must NOT run
+  // on already-current-shape state: v.products is the deliberate source of
+  // truth there, and a product a person just deleted from it would
+  // otherwise get silently re-added on the next reload just because it's
+  // still named on a logged order -- which is exactly what "delete this
+  // product" should not do.
+  if(didLegacyMigration){
+    s.vendors.forEach(function(v){
+      var known = {}; v.products.forEach(function(p){ known[p.name] = true; });
+      var pools = [s.currentOrder.entries].concat(s.pastOrders.map(function(o){ return o.entries; }));
+      pools.forEach(function(list){
+        list.forEach(function(e){
+          if(e.vendorId === v.id && !known[e.product]){ known[e.product] = true; v.products.push({id: uid('product'), name: e.product}); }
+        });
+      });
+    });
+  }
+}
+
+function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  var d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+}
+
+function fmtDateTime(iso){
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) +
+    ' · ' + d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+}
+
+function todayISO(){
+  var d = new Date();
+  var m = String(d.getMonth()+1).padStart(2,'0');
+  var day = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
+
+/* ---- pendingQty safety net ----
+   ui.pendingQty (a picked-but-not-yet-submitted quantity on some other
+   product's row) is kept in a JS variable, but we also mirror it into
+   sessionStorage on every change. If anything ever forces a real page
+   reload (a host behavior we can't fully control from in here), this lets
+   an in-progress pick come back instead of silently vanishing. */
+function savePendingQty(){
+  try{ sessionStorage.setItem('orderLedgerPendingQty', JSON.stringify(ui.pendingQty)); }catch(e){}
+}
+function loadPendingQty(){
+  try{
+    var raw = sessionStorage.getItem('orderLedgerPendingQty');
+    if(raw){ var parsed = JSON.parse(raw); if(parsed && typeof parsed === 'object') ui.pendingQty = parsed; }
+  }catch(e){}
+}
+
+function findVendor(id){ return state.vendors.find(function(v){ return v.id === id; }); }
+function vendorName(id){ var v = findVendor(id); return v ? v.name : 'Unknown vendor'; }
+function vendorColor(id){ var v = findVendor(id); return v ? v.color : '#7A7062'; }
+
+function currentTotals(){
+  var itemCount = 0, vendorSet = {};
+  state.currentOrder.entries.forEach(function(e){
+    itemCount += Number(e.qty) || 0;
+    vendorSet[e.vendorId] = true;
+  });
+  return {itemCount: itemCount, entryCount: state.currentOrder.entries.length, vendorCount: Object.keys(vendorSet).length};
+}
+
+function orderTotals(order){
+  var itemCount = 0, vendorSet = {};
+  order.entries.forEach(function(e){ itemCount += Number(e.qty) || 0; vendorSet[e.vendorId] = true; });
+  return {itemCount: itemCount, entryCount: order.entries.length, vendorCount: Object.keys(vendorSet).length};
+}
+
+function groupByVendor(entries){
+  var map = {};
+  entries.forEach(function(e){ (map[e.vendorId] = map[e.vendorId] || []).push(e); });
+  var groups = state.vendors.filter(function(v){ return map[v.id] && map[v.id].length; }).map(function(v){
+    return {vendorId: v.id, name: v.name, color: v.color, entries: map[v.id]};
+  });
+  Object.keys(map).forEach(function(vid){
+    if(!findVendor(vid)) groups.push({vendorId: vid, name: 'Unknown vendor', color: '#7A7062', entries: map[vid]});
+  });
+  return groups;
+}
+
+/* ---- mutations ----
+   Each mutation re-renders only the specific DOM region it actually
+   changed (see the "targeted render" helpers below appShell), then calls
+   persist(). This means adding/removing an item for one vendor never
+   rebuilds another vendor's catalog rows — so a quantity picked but not
+   yet submitted elsewhere is never touched, regardless of what save
+   timing or reload behavior the host does around persist(). */
+function addVendor(name, color){
+  var id = uid('vendor');
+  state.vendors.push({id:id, name:name, color:color, products:[]});
+  ui.addingVendor = false;
+  renderVendorLegend();
+  appendCatalogBlockDOM(id);
+  persist();
+}
+
+function addCatalogProduct(vendorId, name){
+  var v = findVendor(vendorId); if(!v) return;
+  if(v.products.some(function(p){ return p.name.toLowerCase() === name.toLowerCase(); })) return;
+  v.products.push({id: uid('product'), name: name});
+  renderCatalogBlock(vendorId);
+  persist();
+}
+
+function deleteCatalogProduct(vendorId, productId){
+  var v = findVendor(vendorId); if(!v) return;
+  v.products = v.products.filter(function(p){ return p.id !== productId; });
+  delete ui.pendingQty[productId];
+  savePendingQty();
+  renderCatalogBlock(vendorId);
+  persist();
+}
+
+function clearCatalog(vendorId){
+  var v = findVendor(vendorId); if(!v) return;
+  v.products.forEach(function(p){ delete ui.pendingQty[p.id]; ui.removingProducts.delete(p.id); });
+  v.products = [];
+  ui.confirmClearCatalog = null;
+  savePendingQty();
+  renderCatalogBlock(vendorId);
+  persist();
+}
+
+function quickAdd(vendorId, productName, qty){
+  state.currentOrder.entries.unshift({id: uid('entry'), vendorId: vendorId, product: productName, date: todayISO(), qty: qty, note: ''});
+  renderOrderPanel();
+  persist();
+}
+
+function findCurrentEntry(vendorId, productName){
+  return state.currentOrder.entries.find(function(e){
+    return e.vendorId === vendorId && e.product.toLowerCase() === productName.toLowerCase();
+  });
+}
+
+function requestQuickAdd(vendorId, productName, qty){
+  var existing = findCurrentEntry(vendorId, productName);
+  if(existing){
+    ui.pendingDuplicate = {vendorId: vendorId, productName: productName, qty: qty, existingId: existing.id, existingQty: Number(existing.qty) || 0};
+    renderModal();
+  } else {
+    quickAdd(vendorId, productName, qty);
+  }
+}
+
+function confirmMergeDuplicate(){
+  var pd = ui.pendingDuplicate; if(!pd) return;
+  var existing = state.currentOrder.entries.find(function(e){ return e.id === pd.existingId; });
+  if(existing){
+    existing.qty = (Number(existing.qty) || 0) + pd.qty;
+    existing.date = todayISO();
+  } else {
+    state.currentOrder.entries.unshift({id: uid('entry'), vendorId: pd.vendorId, product: pd.productName, date: todayISO(), qty: pd.qty, note: ''});
+  }
+  ui.pendingDuplicate = null;
+  renderModal();
+  renderOrderPanel();
+  persist();
+}
+
+function cancelMergeDuplicate(){
+  ui.pendingDuplicate = null;
+  renderModal();
+}
+
+function deleteEntry(entryId){
+  state.currentOrder.entries = state.currentOrder.entries.filter(function(e){ return e.id !== entryId; });
+  renderOrderPanel();
+  persist();
+}
+
+function resetOrder(){
+  state.pastOrders.unshift({id: uid('order'), finishedAt: new Date().toISOString(), entries: state.currentOrder.entries});
+  state.currentOrder = {entries: []};
+  ui.confirmReset = false;
+  renderOrderPanel();
+  updateHistoryBadge();
+  persist();
+}
+
+function deletePastOrder(orderId){
+  state.pastOrders = state.pastOrders.filter(function(o){ return o.id !== orderId; });
+  ui.confirmDeleteOrder = null;
+  render();
+  persist();
+}
+
+/* ---- persistence ----
+   Saved straight into this browser's own localStorage -- no network, no
+   account, no host capability of any kind. That also means there's no
+   compare-and-set / conflict / reload-on-save class of bug to worry about
+   at all: the write is synchronous and either it lands or it doesn't.
+   The tradeoff is the one thing localStorage can never give you: this data
+   lives only in this one browser on this one device. Nothing here syncs it
+   anywhere else -- that's what the Export/Import backup controls are for. */
+function persist(){
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    saveStatus = 'saved';
+  } catch(e){
+    // most likely private/incognito browsing with storage blocked, or the
+    // browser's local storage quota is full.
+    saveStatus = 'error';
+  }
+  renderStatusOnly();
+}
+
+function exportBackup(){
+  try {
+    var json = JSON.stringify(state, null, 2);
+    var blob = new Blob([json], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'order-ledger-backup-' + todayISO() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  } catch(e){
+    ui.importError = 'Could not create the backup file in this browser.';
+    render();
+  }
+}
+
+function requestImport(file){
+  var reader = new FileReader();
+  reader.onload = function(){
+    try {
+      var parsed = JSON.parse(reader.result);
+      if(!parsed || !Array.isArray(parsed.vendors)) throw new Error('not a valid backup file');
+      ui.importError = null;
+      ui.pendingImport = parsed;
+      renderModal();
+    } catch(err){
+      ui.importError = "That file doesn't look like an Order Ledger backup.";
+      render();
+    }
+  };
+  reader.onerror = function(){
+    ui.importError = 'Could not read that file.';
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function confirmImport(){
+  var data = ui.pendingImport; if(!data) return;
+  state = data;
+  migrateState(state);
+  ui.pendingImport = null;
+  render();
+  persist();
+}
+
+function cancelImport(){
+  ui.pendingImport = null;
+  renderModal();
+}
+
+/* ---- templates ---- */
+function render(){
+  var app = document.getElementById('app');
+  app.innerHTML = appShell();
+  wireEvents();
+  focusModalIfNeeded();
+}
+
+/* ---- targeted renders ----
+   Each of these replaces exactly one region of the DOM instead of the
+   whole app, so an in-progress pick sitting in an untouched <select>
+   elsewhere on the page is never rebuilt. Every one falls back to a full
+   render() if its container isn't there for some reason, so this can
+   never leave the page stuck. */
+function renderOrderPanel(){
+  var el = document.getElementById('order-panel');
+  if(!el){ render(); return; }
+  el.innerHTML = orderPanelInnerHTML();
+  wireEvents();
+}
+
+function renderCatalogBlock(vendorId){
+  var el = document.getElementById('catalog-block-' + vendorId);
+  var v = findVendor(vendorId);
+  if(!el || !v){ render(); return; }
+  el.outerHTML = catalogBlockHTML(v);
+  wireEvents();
+}
+
+function renderVendorLegend(){
+  var el = document.getElementById('vendor-legend');
+  if(!el){ render(); return; }
+  el.outerHTML = vendorLegendHTML();
+  wireEvents();
+}
+
+function appendCatalogBlockDOM(vendorId){
+  var panel = document.getElementById('catalog-panel');
+  var v = findVendor(vendorId);
+  if(!panel || !v){ render(); return; }
+  panel.insertAdjacentHTML('beforeend', catalogBlockHTML(v));
+  wireEvents();
+}
+
+function renderModal(){
+  var el = document.getElementById('modal-root');
+  if(!el){ render(); return; }
+  el.innerHTML = modalRootHTML();
+  wireEvents();
+  focusModalIfNeeded();
+}
+
+function modalRootHTML(){
+  if(ui.pendingDuplicate) return duplicateModalHTML();
+  if(ui.pendingImport) return importConfirmModalHTML();
+  return '';
+}
+
+function updateHistoryBadge(){
+  var btn = document.querySelector('[data-action="switch-view"][data-view="history"]');
+  if(btn) btn.innerHTML = 'Past Orders' + (state.pastOrders.length ? ' (' + state.pastOrders.length + ')' : '');
+}
+
+function focusModalIfNeeded(){
+  if(ui.pendingDuplicate){
+    var noBtn = document.querySelector('.modal-box [data-action="cancel-merge-duplicate"]');
+    if(noBtn) noBtn.focus();
+  }
+}
+
+function statusChipHTML(){
+  var labels = {idle:'', saved:'Saved on this device', error:'Not saved — your browser is blocking local storage'};
+  var label = labels[saveStatus] || '';
+  if(!label) return '<span id="save-status" class="status"></span>';
+  return '<span id="save-status" class="status status-' + saveStatus + '">' + esc(label) + '</span>';
+}
+
+function renderStatusOnly(){
+  var el = document.getElementById('save-status');
+  if(el) el.outerHTML = statusChipHTML();
+}
+
+function appShell(){
+  return (
+    '<header class="topbar">' +
+      '<div class="brand"><span class="brand-mark">🧾</span><h1>Order Ledger</h1></div>' +
+      statusChipHTML() +
+    '</header>' +
+    '<nav class="nav">' +
+      '<button class="nav-tab' + (ui.view==='current'?' nav-tab-active':'') + '" type="button" data-action="switch-view" data-view="current">Current Order</button>' +
+      '<button class="nav-tab' + (ui.view==='history'?' nav-tab-active':'') + '" type="button" data-action="switch-view" data-view="history">Past Orders' + (state.pastOrders.length ? ' (' + state.pastOrders.length + ')' : '') + '</button>' +
+    '</nav>' +
+    (ui.view === 'current' ? currentOrderViewHTML() : pastOrdersViewHTML()) +
+    '<footer class="app-footer">' +
+      backupControlsHTML() +
+      '<p class="footer-note">Saved in this browser only — nowhere else. Use Export regularly to back it up or move it to another device.</p>' +
+    '</footer>' +
+    '<div id="modal-root">' + modalRootHTML() + '</div>'
+  );
+}
+
+function backupControlsHTML(){
+  return (
+    '<div class="backup-row">' +
+      '<button type="button" class="btn" data-action="export-backup">⬇ Export backup</button>' +
+      '<label class="btn" for="import-backup-input">⬆ Import backup</label>' +
+      '<input type="file" id="import-backup-input" accept="application/json,.json" style="position:absolute; width:1px; height:1px; overflow:hidden; opacity:0;">' +
+    '</div>' +
+    (ui.importError ? '<p class="import-error">' + esc(ui.importError) + '</p>' : '')
+  );
+}
+
+function importConfirmModalHTML(){
+  var data = ui.pendingImport; if(!data) return '';
+  var vCount = (data.vendors || []).length;
+  var entryCount = ((data.currentOrder || {}).entries || []).length;
+  var pastCount = (data.pastOrders || []).length;
+  return (
+    '<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="import-modal-text">' +
+      '<div class="modal-box">' +
+        '<p id="import-modal-text">Replace everything currently saved in this browser with this backup? It has ' + vCount + ' vendor' + (vCount===1?'':'s') + ', ' + entryCount + ' item' + (entryCount===1?'':'s') + ' on the current order, and ' + pastCount + ' past order' + (pastCount===1?'':'s') + '. This can’t be undone.</p>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn" data-action="cancel-import">Cancel</button>' +
+          '<button type="button" class="btn btn-primary" data-action="confirm-import">Yes, replace</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function vendorLegendHTML(){
+  var chips = state.vendors.map(function(v){
+    return '<span class="vendor-chip"><span class="vendor-dot" style="--vc:' + v.color + '"></span>' + esc(v.name) + '</span>';
+  }).join('');
+  chips += '<button class="vendor-chip chip-add" type="button" data-action="toggle-add-vendor">+ Vendor</button>';
+  return '<div class="vendor-legend" id="vendor-legend">' + chips + (ui.addingVendor ? addVendorFormHTML() : '') + '</div>';
+}
+
+function addVendorFormHTML(){
+  var palette = ['#1F6F54','#B5541E','#2A5C8A','#C98A1B','#6B4C9A','#3E7C87','#8A4B6B','#4C6E3E'];
+  var used = state.vendors.map(function(v){return v.color;});
+  var firstFree = palette.find(function(c){ return used.indexOf(c) === -1; }) || palette[state.vendors.length % palette.length];
+  var swatches = palette.map(function(c){
+    return '<button type="button" class="swatch' + (c===firstFree?' swatch-selected':'') + '" data-color="' + c + '" style="--sc:' + c + '" aria-label="color ' + c + '"></button>';
+  }).join('');
+  return (
+    '<form class="add-vendor-form" data-form="add-vendor">' +
+      '<input type="text" name="name" placeholder="Vendor name" required>' +
+      '<div class="swatches">' + swatches + '</div>' +
+      '<input type="hidden" name="color" value="' + firstFree + '">' +
+      '<div class="form-actions"><button type="submit" class="btn btn-primary">Add vendor</button> <button type="button" class="btn" data-action="toggle-add-vendor">Cancel</button></div>' +
+    '</form>'
+  );
+}
+
+function currentOrderViewHTML(){
+  return (
+    '<section class="panel">' +
+      vendorLegendHTML() +
+      '<div class="catalog-section" id="catalog-panel">' +
+        state.vendors.map(catalogBlockHTML).join('') +
+      '</div>' +
+      '<div id="order-panel">' + orderPanelInnerHTML() + '</div>' +
+    '</section>'
+  );
+}
+
+/* Everything here changes when order entries change (add/delete/reset/merge)
+   but NONE of it changes when a catalog product is added/removed or a
+   quantity is merely picked — keeping this separate from the catalog
+   blocks above is what keeps an in-progress pick on another row safe. */
+function orderPanelInnerHTML(){
+  var t = currentTotals();
+  var entries = state.currentOrder.entries;
+  var groups = groupByVendor(entries);
+  return (
+    '<div class="summary">' +
+      '<div class="summary-stat"><span class="num">' + t.itemCount + '</span><span class="label">items</span></div>' +
+      '<div class="summary-stat"><span class="num">' + t.entryCount + '</span><span class="label">entries</span></div>' +
+      '<div class="summary-stat"><span class="num">' + t.vendorCount + '</span><span class="label">vendors</span></div>' +
+    '</div>' +
+    resetControlHTML(entries.length) +
+    (groups.length ? groups.map(function(g){ return groupHTML(g, true); }).join('') : '<p class="empty-hint">Nothing logged yet. Pick a quantity above to add your first item.</p>')
+  );
+}
+
+function duplicateModalHTML(){
+  var pd = ui.pendingDuplicate; if(!pd) return '';
+  var newTotal = pd.existingQty + pd.qty;
+  return (
+    '<div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dup-modal-text">' +
+      '<div class="modal-box">' +
+        '<p id="dup-modal-text">You already have <strong>' + esc(pd.productName) + '</strong> on the list (qty ' + pd.existingQty + '). Add ' + pd.qty + ' more to make it ' + newTotal + '?</p>' +
+        '<div class="modal-actions">' +
+          '<button type="button" class="btn" data-action="cancel-merge-duplicate">No</button>' +
+          '<button type="button" class="btn btn-primary" data-action="confirm-merge-duplicate">Yes, add to it</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function resetControlHTML(hasEntries){
+  if(ui.confirmReset){
+    return (
+      '<div class="confirm-bar">' +
+        '<span>Finish this order and start a new list? It will be saved to Past Orders.</span>' +
+        '<button type="button" class="btn btn-danger" data-action="confirm-reset">Yes, finish order</button>' +
+        '<button type="button" class="btn" data-action="cancel-reset">Cancel</button>' +
+      '</div>'
+    );
+  }
+  return '<button class="btn btn-reset" type="button" data-action="reset-order"' + (hasEntries?'':' disabled') + '>Finish order &amp; start a new list</button>';
+}
+
+function qtySelectHTML(productId){
+  var picked = ui.pendingQty[productId] || '';
+  var opts = QTY_OPTIONS.map(function(n){
+    return '<option value="' + n + '"' + (String(n)===picked?' selected':'') + '>' + n + '</option>';
+  }).join('');
+  return '<select name="qty" required><option value="" disabled' + (picked?'':' selected') + '>Qty</option>' + opts + '</select>';
+}
+
+function catalogBlockHTML(v){
+  var rows = v.products.length ? v.products.map(function(p){
+    var removing = ui.removingProducts.has(p.id);
+    return (
+      '<form class="catalog-row' + (removing?' removing':'') + '" data-form="quick-add" data-vendor="' + v.id + '" data-product-id="' + p.id + '" data-product-name="' + esc(p.name) + '">' +
+        '<span class="catalog-name">' + esc(p.name) + '</span>' +
+        qtySelectHTML(p.id) +
+        '<button type="submit" class="btn btn-primary btn-add-sm"' + (removing?' disabled':'') + '>Add</button>' +
+        '<button type="button" class="row-del" data-action="delete-catalog-product" data-vendor="' + v.id + '" data-product="' + p.id + '" aria-label="Remove ' + esc(p.name) + ' from ' + esc(v.name) + '"' + (removing?' disabled':'') + '>×</button>' +
+      '</form>'
+    );
+  }).join('') : '<p class="catalog-empty">No products saved for ' + esc(v.name) + ' yet.</p>';
+  return (
+    '<div class="catalog-block" id="catalog-block-' + v.id + '" style="--vc:' + v.color + '">' +
+      '<div class="catalog-block-head"><span class="vendor-dot" style="--vc:' + v.color + '"></span><span class="name">' + esc(v.name) + '</span><span class="count">' + v.products.length + ' saved</span></div>' +
+      '<div class="catalog-rows">' + rows + '</div>' +
+      clearCatalogControlHTML(v) +
+      '<form class="add-product-row" data-form="add-product" data-vendor="' + v.id + '">' +
+        '<input type="text" name="name" placeholder="New product for ' + esc(v.name) + '" required>' +
+        '<button type="submit" class="btn">Save</button>' +
+      '</form>' +
+    '</div>'
+  );
+}
+
+function clearCatalogControlHTML(v){
+  if(!v.products.length) return '';
+  if(ui.confirmClearCatalog === v.id){
+    return (
+      '<div class="confirm-bar confirm-bar-inline">' +
+        '<span>Delete all ' + v.products.length + ' saved products for ' + esc(v.name) + '?</span>' +
+        '<button type="button" class="btn btn-danger" data-action="confirm-clear-catalog" data-vendor="' + v.id + '">Yes, delete all</button>' +
+        '<button type="button" class="btn" data-action="cancel-clear-catalog" data-vendor="' + v.id + '">Cancel</button>' +
+      '</div>'
+    );
+  }
+  return '<button type="button" class="link-danger" data-action="request-clear-catalog" data-vendor="' + v.id + '">Clear all saved products</button>';
+}
+
+function groupHTML(g, deletable){
+  var subtotal = g.entries.reduce(function(s,e){ return s + (Number(e.qty)||0); }, 0);
+  return (
+    '<div class="group" style="--vc:' + g.color + '">' +
+      '<div class="group-head"><span class="vendor-dot" style="--vc:' + g.color + '"></span>' + esc(g.name) + '<span class="group-sub">' + subtotal + ' items</span></div>' +
+      ledgerTableHTML(g.entries, deletable) +
+    '</div>'
+  );
+}
+
+function ledgerTableHTML(entries, deletable){
+  var rows = entries.map(function(e){
+    var removing = deletable && ui.removingEntries.has(e.id);
+    return '<tr class="' + (removing?'removing':'') + '">' +
+      '<td class="col-date">' + fmtDate(e.date) + '</td>' +
+      '<td class="col-product">' + esc(e.product) + '</td>' +
+      '<td class="col-qty">' + esc(e.qty) + '</td>' +
+      '<td class="col-note">' + esc(e.note || '') + '</td>' +
+      (deletable ? '<td class="col-del"><button type="button" class="row-del" data-action="delete-entry" data-entry="' + e.id + '" aria-label="Delete this entry"' + (removing?' disabled':'') + '>×</button></td>' : '') +
+    '</tr>';
+  }).join('');
+  return (
+    '<div class="ledger-wrap"><table class="ledger">' +
+      '<thead><tr><th>Date</th><th>Product</th><th class="col-qty">Qty</th><th>Note</th>' + (deletable?'<th class="col-del"></th>':'') + '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table></div>'
+  );
+}
+
+function pastOrdersViewHTML(){
+  if(!state.pastOrders.length){
+    return '<section class="panel"><p class="empty-hint">No past orders yet. Finish your current order to start building history.</p></section>';
+  }
+  var cards = state.pastOrders.map(function(o){
+    var t = orderTotals(o);
+    var expanded = ui.expandedOrders.has(o.id);
+    var groups = groupByVendor(o.entries);
+    return (
+      '<article class="order-card">' +
+        '<button class="order-head" type="button" data-action="toggle-order" data-order="' + o.id + '">' +
+          '<span class="order-date">' + esc(fmtDateTime(o.finishedAt)) + '</span>' +
+          '<span class="order-meta">' + t.itemCount + ' items · ' + t.vendorCount + ' vendor' + (t.vendorCount===1?'':'s') + '</span>' +
+          '<span class="chev">' + (expanded ? '−' : '+') + '</span>' +
+        '</button>' +
+        (expanded ? (
+          '<div class="order-body">' +
+            groups.map(function(g){ return groupHTML(g, false); }).join('') +
+            (ui.confirmDeleteOrder === o.id ?
+              '<div class="confirm-bar"><span>Delete this past order? This cannot be undone.</span>' +
+                '<button type="button" class="btn btn-danger" data-action="confirm-delete-order" data-order="' + o.id + '">Yes, delete</button>' +
+                '<button type="button" class="btn" data-action="cancel-delete-order">Cancel</button></div>'
+              : '<button type="button" class="link-danger" data-action="delete-order" data-order="' + o.id + '">Delete this order</button>')
+          + '</div>'
+        ) : '') +
+      '</article>'
+    );
+  }).join('');
+  return '<section class="panel">' + cards + '</section>';
+}
+
+/* ---- events ---- */
+function wireEvents(){
+  var app = document.getElementById('app');
+  app.onclick = function(e){
+    var sw = e.target.closest('.swatch');
+    if(sw){
+      var form = sw.closest('form');
+      form.querySelector('input[name=color]').value = sw.getAttribute('data-color');
+      form.querySelectorAll('.swatch').forEach(function(s){ s.classList.remove('swatch-selected'); });
+      sw.classList.add('swatch-selected');
+      return;
+    }
+    var el = e.target.closest('[data-action]');
+    if(!el) return;
+    var action = el.getAttribute('data-action');
+    if(action === 'switch-view'){
+      ui.view = el.getAttribute('data-view');
+      render();
+    } else if(action === 'toggle-add-vendor'){
+      ui.addingVendor = !ui.addingVendor;
+      renderVendorLegend();
+    } else if(action === 'delete-entry'){
+      var eid = el.getAttribute('data-entry');
+      if(ui.removingEntries.has(eid)) return; // already pending -- ignore a rapid re-tap
+      ui.removingEntries.add(eid);
+      renderOrderPanel(); // dim/disable it immediately so the row's spot is held
+      setTimeout(function(){
+        ui.removingEntries.delete(eid);
+        deleteEntry(eid);
+      }, ROW_REMOVE_DELAY);
+    } else if(action === 'delete-catalog-product'){
+      var pvid = el.getAttribute('data-vendor');
+      var pid = el.getAttribute('data-product');
+      if(ui.removingProducts.has(pid)) return; // already pending -- ignore a rapid re-tap
+      ui.removingProducts.add(pid);
+      renderCatalogBlock(pvid); // dim/disable it immediately so the row's spot is held,
+                                 // so a rapid second tap can't land on whatever would
+                                 // otherwise have shifted up into that same position
+      setTimeout(function(){
+        ui.removingProducts.delete(pid);
+        deleteCatalogProduct(pvid, pid);
+      }, ROW_REMOVE_DELAY);
+    } else if(action === 'request-clear-catalog'){
+      ui.confirmClearCatalog = el.getAttribute('data-vendor');
+      renderCatalogBlock(ui.confirmClearCatalog);
+    } else if(action === 'cancel-clear-catalog'){
+      ui.confirmClearCatalog = null;
+      renderCatalogBlock(el.getAttribute('data-vendor'));
+    } else if(action === 'confirm-clear-catalog'){
+      clearCatalog(el.getAttribute('data-vendor'));
+    } else if(action === 'reset-order'){
+      if(el.disabled) return;
+      ui.confirmReset = true;
+      renderOrderPanel();
+    } else if(action === 'confirm-reset'){
+      resetOrder();
+    } else if(action === 'cancel-reset'){
+      ui.confirmReset = false;
+      renderOrderPanel();
+    } else if(action === 'toggle-order'){
+      var oid = el.getAttribute('data-order');
+      if(ui.expandedOrders.has(oid)) ui.expandedOrders.delete(oid); else ui.expandedOrders.add(oid);
+      render();
+    } else if(action === 'delete-order'){
+      ui.confirmDeleteOrder = el.getAttribute('data-order');
+      render();
+    } else if(action === 'confirm-delete-order'){
+      deletePastOrder(el.getAttribute('data-order'));
+    } else if(action === 'cancel-delete-order'){
+      ui.confirmDeleteOrder = null;
+      render();
+    } else if(action === 'confirm-merge-duplicate'){
+      confirmMergeDuplicate();
+    } else if(action === 'cancel-merge-duplicate'){
+      cancelMergeDuplicate();
+    } else if(action === 'export-backup'){
+      exportBackup();
+    } else if(action === 'confirm-import'){
+      confirmImport();
+    } else if(action === 'cancel-import'){
+      cancelImport();
+    }
+  };
+  app.onchange = function(e){
+    if(e.target.matches('select[name=qty]')){
+      var f = e.target.closest('form');
+      var pid = f && f.getAttribute('data-product-id');
+      if(pid){ ui.pendingQty[pid] = e.target.value; savePendingQty(); }
+      return;
+    }
+    if(e.target.id === 'import-backup-input'){
+      var file = e.target.files && e.target.files[0];
+      e.target.value = ''; // reset so picking the same file again still fires change
+      if(file) requestImport(file);
+    }
+  };
+  app.onsubmit = function(e){
+    e.preventDefault();
+    var form = e.target;
+    var type = form.getAttribute('data-form');
+    var fd = new FormData(form);
+    if(type === 'add-vendor'){
+      var name = String(fd.get('name')||'').trim();
+      if(!name) return;
+      addVendor(name, fd.get('color'));
+    } else if(type === 'add-product'){
+      var pname = String(fd.get('name')||'').trim();
+      if(!pname) return;
+      addCatalogProduct(form.getAttribute('data-vendor'), pname);
+    } else if(type === 'quick-add'){
+      var qty = Number(fd.get('qty'));
+      if(!qty || qty < 1) return;
+      var pid2 = form.getAttribute('data-product-id');
+      delete ui.pendingQty[pid2];
+      savePendingQty();
+      form.reset(); // snaps THIS row's own picker back to the placeholder
+                     // without touching any other row's <select> in the DOM
+      requestQuickAdd(form.getAttribute('data-vendor'), form.getAttribute('data-product-name'), qty);
+    }
+  };
+}
+
+(function init(){
+  loadPendingQty();
+  // load whatever's already saved in this browser, falling back silently to
+  // the inline seed above if this is the first time this file has been
+  // opened in this browser (or storage is unavailable/empty).
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.vendors)){
+        state = parsed;
+        migrateState(state);
+      }
+    }
+  } catch(e){
+    saveStatus = 'error'; // localStorage itself is unavailable in this browser
+                           // (private/incognito mode commonly blocks it) --
+                           // the app still works, it just won't remember
+                           // anything between visits.
+  }
+  render();
+})();
+
+</script>
+</body>
+</html>
